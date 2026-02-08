@@ -55,11 +55,8 @@ const cfg = {
   agents: {
     defaults: {
       model: {
-        primary: 'anthropic/claude-sonnet-4-5',
-        fallbacks: [
-          'anthropic/claude-opus-4-5',
-          'openrouter/moonshotai/kimi-k2.5'
-        ]
+        primary: process.env.OPENCLAW_DEFAULT_MODEL || 'anthropic/claude-sonnet-4-5',
+        fallbacks: (process.env.OPENCLAW_FALLBACK_MODELS || 'anthropic/claude-opus-4-5,openrouter/moonshotai/kimi-k2.5').split(',').map(s => s.trim())
       },
       models: {
         'openrouter/moonshotai/kimi-k2.5': {
@@ -81,7 +78,7 @@ const cfg = {
       maxConcurrent: 4,
       subagents: {
         maxConcurrent: 8,
-        model: 'anthropic/claude-sonnet-4-5'
+        model: process.env.OPENCLAW_SUBAGENT_MODEL || process.env.OPENCLAW_DEFAULT_MODEL || 'anthropic/claude-sonnet-4-5'
       }
     },
     list: [
@@ -187,10 +184,10 @@ if (!cfg.gateway.auth.token) delete cfg.gateway.auth.token;
 if (!cfg.models.providers.openrouter.apiKey) delete cfg.models.providers.openrouter.apiKey;
 
 fs.writeFileSync('$CONFIG', JSON.stringify(cfg, null, 2) + '\n');
-console.log('[entrypoint] Full config restored from Feb 3 backup');
+console.log('[entrypoint] Config written');
+console.log('[entrypoint] Model:', cfg.agents.defaults.model.primary);
 console.log('[entrypoint] Agents:', cfg.agents.list.map(a => a.id).join(', '));
 console.log('[entrypoint] Telegram:', cfg.channels.telegram.enabled ? 'enabled' : 'disabled');
-console.log('[entrypoint] Gateway bind:', cfg.gateway.bind);
 "
 
 # Launch OpenClaw gateway directly
