@@ -12,7 +12,7 @@ if [ ! -f "$CONFIG" ]; then
   echo "[entrypoint] Created default openclaw.json"
 fi
 
-# Patch existing config to ensure bind=lan and allowInsecureAuth=true
+# Patch existing config to ensure correct settings for reverse proxy deployment
 # Uses node since jq isn't available in node:22-bookworm by default
 node -e "
 const fs = require('fs');
@@ -21,10 +21,17 @@ let cfg = {};
 try { cfg = JSON.parse(fs.readFileSync(path, 'utf8')); } catch(e) {}
 if (!cfg.gateway) cfg.gateway = {};
 cfg.gateway.bind = 'lan';
+// Trust Docker/Traefik internal network so proxy headers are respected
+// This allows allowInsecureAuth to work behind the reverse proxy
+cfg.gateway.trustedProxies = ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'];
 if (!cfg.gateway.controlUi) cfg.gateway.controlUi = {};
 cfg.gateway.controlUi.allowInsecureAuth = true;
 fs.writeFileSync(path, JSON.stringify(cfg, null, 2) + '\n');
-console.log('[entrypoint] Patched config:', JSON.stringify({bind: cfg.gateway.bind, allowInsecureAuth: cfg.gateway.controlUi.allowInsecureAuth}));
+console.log('[entrypoint] Patched config:', JSON.stringify({
+  bind: cfg.gateway.bind,
+  trustedProxies: cfg.gateway.trustedProxies,
+  allowInsecureAuth: cfg.gateway.controlUi.allowInsecureAuth
+}));
 "
 
 # Launch OpenClaw with all passed arguments
