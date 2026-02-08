@@ -38,18 +38,16 @@ RUN rm -rf .git node_modules/.cache
 RUN mkdir -p /home/node/.openclaw /home/node/.openclaw/workspace \
     && chown -R node:node /home/node /app
 
+# Copy entrypoint script that patches config on every startup
+# (ensures bind=lan and allowInsecureAuth=true even if a volume overrides the config)
+COPY --chown=node:node entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
 USER node
 WORKDIR /home/node
 
-# Seed default config:
-# - bind: lan — listen on 0.0.0.0 so Coolify's reverse proxy can reach the gateway
-# - allowInsecureAuth: true — allow HTTP + token auth, bypasses device pairing
-#   (needed because Coolify terminates TLS and forwards plain HTTP to the container)
-RUN printf '{\n  "gateway": {\n    "bind": "lan",\n    "controlUi": {\n      "allowInsecureAuth": true\n    }\n  }\n}\n' > /home/node/.openclaw/openclaw.json
-
 ENV NODE_ENV=production
-ENV OPENCLAW_GATEWAY_BIND=lan
 ENV PATH="/app/node_modules/.bin:${PATH}"
 
-ENTRYPOINT ["node", "/app/dist/index.js"]
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["gateway", "--port", "18789", "--bind", "lan"]
