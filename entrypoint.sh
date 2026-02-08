@@ -26,6 +26,11 @@ cfg.gateway.bind = 'lan';
 cfg.gateway.trustedProxies = ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'];
 if (!cfg.gateway.controlUi) cfg.gateway.controlUi = {};
 cfg.gateway.controlUi.allowInsecureAuth = true;
+// Remove deprecated/unrecognized keys that cause config validation failures
+if (cfg.models?.providers?.anthropic?.apiKeyEnv !== undefined) {
+  delete cfg.models.providers.anthropic.apiKeyEnv;
+  console.log('[entrypoint] Removed deprecated key: models.providers.anthropic.apiKeyEnv');
+}
 fs.writeFileSync(path, JSON.stringify(cfg, null, 2) + '\n');
 console.log('[entrypoint] Patched config:', JSON.stringify({
   bind: cfg.gateway.bind,
