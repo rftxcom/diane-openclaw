@@ -30,13 +30,6 @@ cfg.gateway.trustedProxies = ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'];
 if (!cfg.gateway.controlUi) cfg.gateway.controlUi = {};
 cfg.gateway.controlUi.allowInsecureAuth = true;
 
-// --- Cleanup: remove keys that are invalid in the current schema ---
-// apiKeyEnv was never a valid config key
-if (cfg.models?.providers?.anthropic?.apiKeyEnv !== undefined) {
-  delete cfg.models.providers.anthropic.apiKeyEnv;
-  console.log('[entrypoint] Removed invalid key: models.providers.anthropic.apiKeyEnv');
-}
-
 fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n');
 console.log('[entrypoint] Config patched:', JSON.stringify({
   bind: cfg.gateway.bind,
@@ -44,6 +37,12 @@ console.log('[entrypoint] Config patched:', JSON.stringify({
   allowInsecureAuth: cfg.gateway.controlUi.allowInsecureAuth
 }));
 "
+
+# Auto-fix any invalid/deprecated config keys left over from older versions.
+# This replaces manual key-by-key cleanup — doctor --fix handles everything.
+echo "[entrypoint] Running openclaw doctor --fix ..."
+node /app/openclaw.mjs doctor --fix 2>&1 || true
+echo "[entrypoint] Doctor complete."
 
 # Launch OpenClaw (official entrypoint)
 exec node /app/openclaw.mjs "$@"
