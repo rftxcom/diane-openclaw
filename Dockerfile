@@ -41,7 +41,14 @@ RUN mkdir -p /home/node/.openclaw /home/node/.openclaw/workspace \
 USER node
 WORKDIR /home/node
 
+# Seed default config:
+# - bind: lan — listen on 0.0.0.0 so Coolify's reverse proxy can reach the gateway
+# - allowInsecureAuth: true — allow HTTP + token auth, bypasses device pairing
+#   (needed because Coolify terminates TLS and forwards plain HTTP to the container)
+RUN printf '{\n  "gateway": {\n    "bind": "lan",\n    "controlUi": {\n      "allowInsecureAuth": true\n    }\n  }\n}\n' > /home/node/.openclaw/openclaw.json
+
 ENV NODE_ENV=production
+ENV OPENCLAW_GATEWAY_BIND=lan
 ENV PATH="/app/node_modules/.bin:${PATH}"
 
 ENTRYPOINT ["node", "/app/dist/index.js"]
