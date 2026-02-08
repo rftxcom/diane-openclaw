@@ -6,38 +6,44 @@ CONFIG="/home/node/.openclaw/openclaw.json"
 # Ensure config directory exists
 mkdir -p /home/node/.openclaw /home/node/.openclaw/workspace
 
-# If no config exists at all, create one from scratch
+# If no config exists at all, create a minimal one
 if [ ! -f "$CONFIG" ]; then
-  echo '{"gateway":{"bind":"lan","controlUi":{"allowInsecureAuth":true}}}' > "$CONFIG"
-  echo "[entrypoint] Created default openclaw.json"
+  echo '{}' > "$CONFIG"
+  echo "[entrypoint] Created empty openclaw.json"
 fi
 
-# Patch existing config to ensure correct settings for reverse proxy deployment
-# Uses node since jq isn't available in node:22-bookworm by default
+# Patch config for reverse proxy deployment behind Coolify/Traefik
 node -e "
 const fs = require('fs');
-const path = '$CONFIG';
+const cfgPath = '$CONFIG';
 let cfg = {};
-try { cfg = JSON.parse(fs.readFileSync(path, 'utf8')); } catch(e) {}
+try { cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8')); } catch(e) {}
+
+// Gateway: bind to all interfaces so Traefik can reach us
 if (!cfg.gateway) cfg.gateway = {};
 cfg.gateway.bind = 'lan';
-// Trust Docker/Traefik internal network so proxy headers are respected
-// This allows allowInsecureAuth to work behind the reverse proxy
+
+// Trust RFC 1918 networks so Traefik's forwarded headers are respected
 cfg.gateway.trustedProxies = ['10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16'];
+
+// Allow HTTP + token auth (Traefik terminates TLS upstream)
 if (!cfg.gateway.controlUi) cfg.gateway.controlUi = {};
 cfg.gateway.controlUi.allowInsecureAuth = true;
-// Remove deprecated/unrecognized keys that cause config validation failures
+
+// --- Cleanup: remove keys that are invalid in the current schema ---
+// apiKeyEnv was never a valid config key
 if (cfg.models?.providers?.anthropic?.apiKeyEnv !== undefined) {
   delete cfg.models.providers.anthropic.apiKeyEnv;
-  console.log('[entrypoint] Removed deprecated key: models.providers.anthropic.apiKeyEnv');
+  console.log('[entrypoint] Removed invalid key: models.providers.anthropic.apiKeyEnv');
 }
-fs.writeFileSync(path, JSON.stringify(cfg, null, 2) + '\n');
-console.log('[entrypoint] Patched config:', JSON.stringify({
+
+fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n');
+console.log('[entrypoint] Config patched:', JSON.stringify({
   bind: cfg.gateway.bind,
   trustedProxies: cfg.gateway.trustedProxies,
   allowInsecureAuth: cfg.gateway.controlUi.allowInsecureAuth
 }));
 "
 
-# Launch OpenClaw with all passed arguments
-exec node /app/dist/index.js "$@"
+# Launch OpenClaw (official entrypoint)
+exec node /app/openclaw.mjs "$@"
